@@ -1,0 +1,7 @@
+spec:
+  name: opensassi-org
+  static_sites:
+    - git:
+        branch: main
+        repo_clone_url: https://github.com/opensassi/opensassi-org.git
+  catchall_document: html/index.html
