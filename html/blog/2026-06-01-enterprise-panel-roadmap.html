@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Self-Hoisting the Product: How We Used Expert Panels to Define a0's Roadmap — openSASSI</title>
+  </head>
+  <style>
+    body {
+      max-width: 720px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: system-ui, sans-serif;
+      line-height: 1.6;
+      color: #111;
+    }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.2rem; margin-top: 2em; }
+    a, a:hover { color: black; }
+    img { max-width: 100%; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    th { background: #f5f5f5; }
+    code { background: #f0f0f0; padding: 2px 5px; font-size: 0.9em; }
+    pre code { background: none; padding: 0; }
+    pre { background: #f5f5f5; padding: 12px; overflow-x: auto; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+    .meta { color: #666; font-size: 0.9rem; margin-bottom: 2em; }
+    .back { margin-top: 3em; }
+  </style>
+  <body>
+    <h1>Self-Hoisting the Product: How We Used Expert Panels to Define a0's Roadmap</h1>
+    <div class="meta"></div>
+    <hr />
+<p>In one eight-hour session, we went from zero to a complete product roadmap with 81 tracked issues, a zero-trust security model, a self-hoisting compiler test, and a public project board — all driven by a structured expert panel methodology running inside an AI agent.</p>
+<p>This post is the post-session retrospective, written after <code>git finish-session</code> pushed the atomic commit to main.</p>
+<h2>What We Built</h2>
+<p>The session was framed around a question: <strong>can we use the same spec-driven development pipeline a0 provides to design a0 itself?</strong></p>
+<p>The answer was yes, and the vehicle was the <strong>Enterprise Stakeholder Review Panel</strong> — a five-expert panel (SeniorSoftwareEngineer, SeniorSoftwareEngineerUser, EngineeringManager, ProductManager, CorporateExecutive) that evaluates the codebase, identifies feature gaps, and decomposes work into atomic, parallelizable implementation units.</p>
+<p>The panel's output is structured issues on GitHub, organized by release phase, with acceptance criteria, implementation plans, and test requirements — the same format a0's spec pipeline uses to generate code. The system is self-hosting by design: a0 reads its own roadmap to generate its own implementation.</p>
+<h2>The Numbers</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Session duration</td>
+<td>8 hours prompter time</td>
+</tr>
+<tr>
+<td>Equivalent SME time</td>
+<td>120-160 hours</td>
+</tr>
+<tr>
+<td>AI multiplier</td>
+<td>15-20x</td>
+</tr>
+<tr>
+<td>Issues created</td>
+<td>81</td>
+</tr>
+<tr>
+<td>Release phases</td>
+<td>3 (Open Source, Cloud Beta, Enterprise)</td>
+</tr>
+<tr>
+<td>Expert panels</td>
+<td>2 (Enterprise Stakeholder, System Design Review)</td>
+</tr>
+<tr>
+<td>Audit findings</td>
+<td>43 mapped to 21 blocker issues</td>
+</tr>
+<tr>
+<td>Tests passed</td>
+<td>27/27 (100%)</td>
+</tr>
+</tbody>
+</table>
+<h2>The Architecture That Emerged</h2>
+<p>The session produced a four-tier daemon architecture that didn't exist when we started:</p>
+<pre><code>Cloud Service ──→ d3 ──→ c2 ──→ b1 ──→ a0
+  (auth only)    (team)   (host)  (proj)  (agent)
+</code></pre>
+<p>The cloud service is deliberately zero-opex — it handles only authentication and routing. All agent execution, telemetry, and data storage run on customer infrastructure. Every operation is cryptographically signed through a JWT chain (<a href="https://github.com/opensassi/a0/issues/81">issue #81</a>) that passes user identity from SAML/SSO all the way down to individual a0 tool calls.</p>
+<p>The agent starts with <strong>zero autonomous capability</strong> (<a href="https://github.com/opensassi/a0/issues/77">issue #77</a>). Every bash command, Docker execution, file write, and external API call requires explicit user authorization via a c2 dashboard pop-up. This is the opposite of most AI coding tools, which assume full filesystem access by default.</p>
+<h2>The Self-Hoisting Compiler</h2>
+<p>The most interesting development was the <strong>ontogeny test</strong> (<a href="https://github.com/opensassi/a0/issues/42">issue #42</a>) — a self-hoisting specification compiler. The agent reads its own technical specification files, generates C++ implementation code, compiles it, runs the E2E test suite against the generated binary, and iterates until the generated binary passes all tests.</p>
+<p>This is the software equivalent of a self-hosting compiler (GCC compiling itself). If the spec tree is complete enough that a0 can generate itself from it, we have definitive proof that the spec-driven pipeline is working. The test was decomposed into 12 atomic sub-issues (<a href="https://github.com/opensassi/a0/issues/43">#43-#54</a>) that can be implemented in parallel.</p>
+<h2>The Session Flow</h2>
+<p>The session used a two-phase execution process:</p>
+<p><strong>Phase 1 — Feature Review</strong> (Enterprise Stakeholder Panel):</p>
+<ol>
+<li>Load 80+ source files and all spec documents into context</li>
+<li>Cluster open issues by system context (spec tree, source tree, test tree, UI, infrastructure)</li>
+<li>Run the 5-expert panel against each cluster</li>
+<li>Decompose issues into atomic, code-first implementation units</li>
+<li>Create issues on GitHub with milestones, phase assignments, and size estimates</li>
+</ol>
+<p><strong>Phase 2 — Audit Reconciliation</strong> (System Design Review Panel):</p>
+<ol>
+<li>Run the 7-expert technical panel over each new feature issue</li>
+<li>Identify gaps between features and audit requirements</li>
+<li>Add user stories or create new blocker issues</li>
+</ol>
+<p>Both panels produce structured GitHub issues, not code. The actual implementation happens in follow-up sessions using the handoff process we defined.</p>
+<h2>The Human Multiplier</h2>
+<p>The most striking metric from the session evaluation:</p>
+<blockquote>
+<p><strong>Prompter time:</strong> 8 hours (reading, thinking, writing)
+<strong>Equivalent SME time:</strong> 120-160 hours
+<strong>Multiplier:</strong> 15-20x</p>
+</blockquote>
+<p>The AI multiplier was highest in precisely the areas where traditional coding tools provide the least value: product strategy, security architecture, compliance planning, and multi-stakeholder tradeoff analysis. The panel methodology turns a single product manager's intuition into structured, auditable, multi-perspective analysis.</p>
+<p>This is the opposite of the usual AI coding narrative. The focus wasn't on generating code faster — it was on <strong>compressing the strategic decision-making cycle</strong> that precedes and directs all code.</p>
+<h2>What's Next</h2>
+<p>The handoff documents in <code>handoffs/2026-06-01-enterprise-panel-roadmap/</code> define the execution process for the next session: load context, enumerate issues, run panels, decompose, create sub-issues, implement. The process is self-similar — it applies at every level of granularity, from product roadmap down to individual method implementation.</p>
+<p>The delivery timeline:</p>
+<ul>
+<li><strong>Open Source:</strong> June 15 (2 weeks)</li>
+<li><strong>Cloud Beta:</strong> July 1 (4 weeks)</li>
+<li><strong>Enterprise candidate:</strong> August 15 (10 weeks)</li>
+</ul>
+<p>All 81 issues are tracked publicly at <a href="https://github.com/orgs/opensassi/projects/1">github.com/orgs/opensassi/projects/1</a>.</p>
+<hr />
+    <div class="back"><a href="../index.html">← openSASSI</a></div>
+  </body>
+</html>
